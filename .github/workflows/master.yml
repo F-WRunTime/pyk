@@ -7,6 +7,17 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
 
 jobs:
+  version-bump:
+    name: 'Version Bump'
+    runs-on: ubuntu-latest
+    steps:
+      - name: 'Check out code'
+        uses: actions/checkout@v3
+        with:
+          token: ${{ secrets.JENKINS_GITHUB_PAT }}
+          # fetch-depth 0 means deep clone the repo
+          fetch-depth: 0
+
 
   tag-release:
     name: 'Tag Release and Bump Dependents'
@@ -20,8 +31,14 @@ jobs:
           fetch-depth: 0
       - name: 'Update Version'
         run: |
+          set -x
           git config user.name devops
           git config user.email devops@runtimeverification.com
+          ./package/version.sh bump $(git show origin/${{ github.ref }}:package/version)
+          ./package/version.sh sub
+          if git add --update && git commit --message "Set Version: $(cat package/version)"; then
+            git push origin HEAD:${{ github.ref }}
+          fi   
           version=v"$(cat package/version)"
           git tag --delete "${version}" || true
           git push --delete origin "${version}" || true
